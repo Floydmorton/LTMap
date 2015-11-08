@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LT Map</title>
+  <script type='text/javascript' src='https://code.jquery.com/jquery-2.1.3.js'></script>
+  <script type='text/javascript' src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>  
+  
+  
+  
+  <!-- <link rel="stylesheet" type="text/css" href="/css/result-light.css"> -->
+  
+    
+      <link rel="stylesheet" type="text/css" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+    
+  
+    
+
+    
+  
+  <style type='text/css'>
+    .pathMapAnimated {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: dash 5s linear infinite;
+}
+
+
+
+@keyframes dash {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+#divMap {
+    background-image: url('http://www.lanetech.org/img/lane-2.png');
+    background-repeat: no-repeat;
+    margin:0;
+    padding:0;
+}
+
+#divControls {    
+    position: absolute;
+    left: 250px;
+    top: 15px;
+}
+
+button, select {
+ font-size: 1.5em;   
+}
+
+#btnAnimate {display:none;}
+
+
+
+  </style>
+  
+</head>
+<body>
+  <div id="pageMap" data-role="page">
+
+  <div data-role="header">
+    <h1>Lane Tech Interactive Map</h1>
+  </div>
+
+  <div id="divMap" data-role="main" class="ui-content">
+    <div id="divControls">
+<select id="selFrom">
+    <option>Select Starting Location</option>
+</select>
+<select id="selTo">
+    <option>Select Ending Location</option>
+</select>
+<button id="btnDraw" onclick="drawPath();">Draw Path</button>
+<button id="btnAnimate">Stop</button>
+</div>
+
+
+<svg id="svgMap"  height="1000" width="1000" viewBox="0 0 1000 1000" version="1.1">
+    <path id="pathMap" class="pathMapAnimated" d="" stroke-width="8" stroke="rgb(0,0,255)" fill="none"/>
+</svg>
+
+<div data-role="footer">
+ <div data-role="navbar">
+      <ul>
+        <li><a href="#">More</a></li>
+        <li><a class="btnFloor" data-floor="1" href="#" data-icon="minus">1</a></li>
+        <li><a class="btnFloor" data-floor="2" href="#" data-icon="delete">2</a></li>
+        <li><a class="btnFloor" data-floor="3" href="#" data-icon="check">3</a></li>
+        <li><a class="btnFloor" data-floor="4" href="#" data-icon="info">4</a></li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+
+
+  
+
+
+
+<script type='text/javascript'>//<![CDATA[
+
+// location and path data at bottom of script
+
+var pathAnimatedP = true;
+
+
+$(document).ready(function () {
+   $.each(locations, function(key, value) {
+     $('#selFrom')
+         .append($("<option></option>")
+         .attr("value",key)
+         .text(key));
+	});
+    
+	$.each(locations, function(key, value) {
+     $('#selTo')
+         .append($("<option></option>")
+         .attr("value",key)
+         .text(key));
+	}); 
+    
+    
+    $("#btnAnimate").click( function() {
+      console.log(pathAnimatedP); 
+        $("#btnAnimate").text(pathAnimatedP ? "Stop": "Start");
+        $("#pathMap").removeClass("pathMapAnimated");
+    	pathAnimatedP = !pathAnimatedP;
+    });
+    
+    
+    
+    
+    
+});
+
+$(document).on("pagecreate","#pageMap",function(){
+
+   $(".btnFloor").click( function() {
+       console.log($(this).data("floor"));
+      $("#divMap").css("background-image", "url('http://www.lanetech.org/img/lane-" + $(this).data("floor") + ".png')"); 
+   });
+
+});
+
+
+
+/*
+
+	getPathArray -
+    	returns an array of x,y coordinates comprising 
+        the locations in the path
+
+*/
+function getPathArray(strStartLocation, strEndLocation) {
+    console.log("strStartLocation = " + strStartLocation);
+    var objStartLocation = locations[strStartLocation];
+    var thisPath = [];
+    var strStartHall = objStartLocation.hall;
+    var arrayPathsForStartHall
+
+    console.log("strStartHall in paths = " + (strStartHall in paths));
+    
+    if (strStartHall in paths)
+        arrayPathsForStartHall = paths[strStartHall];
+    else
+        arrayPathsForStartHall = paths[strStartHall[1] + strStartHall[0]];
+
+    var objEndLocation = locations[strEndLocation];
+    var strEndHall = objEndLocation.hall;
+	var arrayPathPoints = [];
+    var strLocationId, objLocation, strEndHallLookup;
+    
+    // first point in the path is the starting location
+    thisPath.push({x: objStartLocation.x, y: objStartLocation.y});
+    
+    console.log(arrayPathsForStartHall);
+    
+    // find object for end location and convert locations to array 
+    for (var i=0; i< arrayPathsForStartHall.length; i++) {
+    	// "or" condition to handle flipped hall ids that may not have explicit paths entered
+        console.log(strEndHall[1] + strEndHall[0]);
+        if (arrayPathsForStartHall[i].end === strEndHall)  
+            arrayPathPoints = arrayPathsForStartHall[i].locations.split(",");
+        else if (arrayPathsForStartHall[i].end === (strEndHall[1] + strEndHall[0]))
+         arrayPathPoints = arrayPathsForStartHall[i].locations.split(",");
+        
+    }
+   
+    console.log("arrayPathPoints = " + arrayPathPoints.length);
+    
+    // loop through points, get coords, and create array of coords
+    for (var i=0; i<arrayPathPoints.length; i++) {
+     	strLocationId = arrayPathPoints[i];
+        console.log(strLocationId);
+        objLocation = locations[strLocationId];
+        thisPath.push({x: objLocation.x, y: objLocation.y});
+        
+    }
+    
+     // last point in the path is the ending location
+    thisPath.push({x: objEndLocation.x, y: objEndLocation.y});
+    console.log(objStartLocation);
+    console.log(objEndLocation);
+    
+    return thisPath;
+}
+
+
+/*
+
+	getPathString - converts coordinate array to 
+    	string format needed for path element "d" attribute
+
+*/
+function getPathString (arrayCoords) {
+   var pathString = "";
+    
+   if (arrayCoords.length > 0) {
+       pathString += "M" + arrayCoords[0].x + " " + arrayCoords[0].y;
+    
+       for (var i=1; i < arrayCoords.length; i++) {
+        pathString += " L" + arrayCoords[i].x + " " + arrayCoords[i].y;
+       
+       }
+   }
+
+    console.log("pathString = " + pathString);
+    return pathString;
+    
+}
+
+function drawPath () {
+    var strStartLocation = $("#selFrom").val();
+    var strEndLocation = $("#selTo").val();
+    
+    
+    var arrayPathPoints = getPathArray(strStartLocation,strEndLocation);
+    var strSVGPath = getPathString(arrayPathPoints);
+    var path = document.getElementById('pathMap');
+    path.setAttribute('d',strSVGPath);
+
+}
+
+
+var floorMaps = [];
+floorMaps[0] = new Image().src = "http://www.lanetech.org/img/lane-1.png";
+floorMaps[1] = new Image().src = "http://www.lanetech.org/img/lane-2.png";
+floorMaps[2] = new Image().src = "http://www.lanetech.org/img/lane-3.png";
+floorMaps[3] = new Image().src = "http://www.lanetech.org/img/lane-4.png";
+
+// locations provide the x,y coordinates for the line drawing
+var locations = {};
+locations["A"] = {x:712, y:235, hall:"AB"};
+locations["B"] = {x:528, y:235, hall:"BC"};
+locations["C"] = {x:400, y:235, hall:"CD"};
+locations["D"] = {x:220, y:235, hall:"DC"};
+locations["G"] = {x:220, y:407, hall:"GH"};
+locations["H"] = {x:220, y:555, hall:"HG"};
+locations["J"] = {x:220, y:850, hall:"JH"};
+locations["K"] = {x:30, y:850, hall:"KJ"};
+locations["M"] = {x:712, y:900, hall:"MO"};
+locations["N"] = {x:875, y:850, hall:"NM"};
+locations["O"] = {x:712, y:555, hall:"OZ"};
+locations["Z"] = {x:465, y:555, hall:"ZO"};
+locations["Cafeteria"] = {x:465, y:645, hall:"ZH", floor:1};
+locations["Main Office"] = {x:465, y:235, hall:"BC", floor:1};
+
+
+locations["125"] = {x:712, y:215, hall:"OA"};
+
+locations["148"] = {x:220, y:900, hall:"JH"};
+
+
+
+
+// paths provide the routes between two locations
+var paths={};
+paths.AB = []; 
+paths.AB.push({end:"AB", locations:""});
+paths.AB.push({end:"BC", locations:""});
+paths.AB.push({end:"CD", locations:""});
+paths.AB.push({end:"DG", locations:"D"});
+paths.AB.push({end:"GH", locations:"D"});
+paths.AB.push({end:"HJ", locations:"D"});
+paths.AB.push({end:"JK", locations:"D,J"});
+paths.AB.push({end:"HZ", locations:"A,O"});
+paths.AB.push({end:"ZO", locations:"A,O"});
+paths.AB.push({end:"OM", locations:"A"});
+paths.AB.push({end:"MN", locations:"A,M"});
+paths.AB.push({end:"OA", locations:"A"});
+paths.BC = []; 
+paths.BC.push({end:"AB", locations:""});
+paths.BC.push({end:"BC", locations:""});
+paths.BC.push({end:"CD", locations:""});
+paths.BC.push({end:"DG", locations:"D"});
+paths.BC.push({end:"GH", locations:"D"});
+paths.BC.push({end:"HJ", locations:"D"});
+paths.BC.push({end:"JK", locations:"D,J"});
+paths.BC.push({end:"HZ", locations:"A,O"});
+paths.BC.push({end:"ZO", locations:"A,O"});
+paths.BC.push({end:"OM", locations:"A"});
+paths.BC.push({end:"MN", locations:"A,M"});
+paths.BC.push({end:"OA", locations:"A"});
+paths.CD = []; 
+paths.CD.push({end:"AB", locations:""});
+paths.CD.push({end:"BC", locations:""});
+paths.CD.push({end:"CD", locations:""});
+paths.CD.push({end:"DG", locations:"D"});
+paths.CD.push({end:"GH", locations:"D"});
+paths.CD.push({end:"HJ", locations:"D"});
+paths.CD.push({end:"JK", locations:"D,J"});
+paths.CD.push({end:"HZ", locations:"D,H"});
+paths.CD.push({end:"ZO", locations:"A,O"});
+paths.CD.push({end:"OM", locations:"A"});
+paths.CD.push({end:"MN", locations:"A,M"});
+paths.CD.push({end:"OA", locations:"A"});
+paths.DG = []; 
+paths.DG.push({end:"AB", locations:"D"});
+paths.DG.push({end:"BC", locations:"D"});
+paths.DG.push({end:"CD", locations:"D"});
+paths.DG.push({end:"DG", locations:""});
+paths.DG.push({end:"GH", locations:""});
+paths.DG.push({end:"HJ", locations:""});
+paths.DG.push({end:"JK", locations:"J"});
+paths.DG.push({end:"HZ", locations:"H"});
+paths.DG.push({end:"ZO", locations:"H"});
+paths.DG.push({end:"OM", locations:"H,O"});
+paths.DG.push({end:"MN", locations:"H,O,M"});
+paths.DG.push({end:"OA", locations:"D,A"});
+paths.GH = []; 
+paths.GH.push({end:"AB", locations:"D"});
+paths.GH.push({end:"BC", locations:"D"});
+paths.GH.push({end:"CD", locations:"D"});
+paths.GH.push({end:"DG", locations:""});
+paths.GH.push({end:"GH", locations:""});
+paths.GH.push({end:"HJ", locations:""});
+paths.GH.push({end:"JK", locations:"J"});
+paths.GH.push({end:"HZ", locations:"H"});
+paths.GH.push({end:"ZO", locations:"H"});
+paths.GH.push({end:"OM", locations:"H,O"});
+paths.GH.push({end:"MN", locations:"H,O,M"});
+paths.HJ = []; 
+paths.HJ.push({end:"AB", locations:"D"});
+paths.HJ.push({end:"BC", locations:"D"});
+paths.HJ.push({end:"CD", locations:"D"});
+paths.HJ.push({end:"DG", locations:""});
+paths.HJ.push({end:"GH", locations:""});
+paths.HJ.push({end:"HJ", locations:""});
+paths.HJ.push({end:"JK", locations:"J"});
+paths.HJ.push({end:"HZ", locations:"H"});
+paths.HJ.push({end:"ZO", locations:"H"});
+paths.HJ.push({end:"OM", locations:"H,O"});
+paths.HJ.push({end:"MN", locations:"H,O,M"});
+paths.HJ.push({end:"OA", locations:"H,O"});
+paths.GH.push({end:"OA", locations:"H,O"});
+paths.JK = []; 
+paths.JK.push({end:"AB", locations:"J,D"});
+paths.JK.push({end:"BC", locations:"J,D"});
+paths.JK.push({end:"CD", locations:"J,D"});
+paths.JK.push({end:"DG", locations:"J"});
+paths.JK.push({end:"GH", locations:"J"});
+paths.JK.push({end:"HJ", locations:"J"});
+paths.JK.push({end:"JK", locations:""});
+paths.JK.push({end:"HZ", locations:"J,H"});
+paths.JK.push({end:"ZO", locations:"J,H"});
+paths.JK.push({end:"OM", locations:"J,H,O"});
+paths.JK.push({end:"MN", locations:"J,H,O"});
+paths.JK.push({end:"OA", locations:"J,H,O"});
+paths.HZ = []; 
+paths.HZ.push({end:"AB", locations:"H,D"});
+paths.HZ.push({end:"BC", locations:"H,D"});
+paths.HZ.push({end:"CD", locations:"H,D"});
+paths.HZ.push({end:"DG", locations:"H"});
+paths.HZ.push({end:"GH", locations:"H"});
+paths.HZ.push({end:"HJ", locations:"H"});
+paths.HZ.push({end:"JK", locations:"H,J"});
+paths.HZ.push({end:"HZ", locations:""});
+paths.HZ.push({end:"ZO", locations:""});
+paths.HZ.push({end:"OM", locations:"O"});
+paths.HZ.push({end:"MN", locations:"O,M"});
+paths.HZ.push({end:"OA", locations:"O"});
+paths.ZO = []; 
+paths.ZO.push({end:"AB", locations:"O,A"});
+paths.ZO.push({end:"BC", locations:"O,A"});
+paths.ZO.push({end:"CD", locations:"H,D"});
+paths.ZO.push({end:"DG", locations:"H"});
+paths.ZO.push({end:"GH", locations:"H"});
+paths.ZO.push({end:"HJ", locations:"H"});
+paths.ZO.push({end:"JK", locations:"H,J"});
+paths.ZO.push({end:"HZ", locations:""});
+paths.ZO.push({end:"ZO", locations:""});
+paths.ZO.push({end:"OM", locations:""});
+paths.ZO.push({end:"MN", locations:"O,M"});
+paths.ZO.push({end:"OA", locations:"O"});
+paths.OM = []; 
+paths.OM.push({end:"AB", locations:"A"});
+paths.OM.push({end:"BC", locations:"A"});
+paths.OM.push({end:"CD", locations:"A"});
+paths.OM.push({end:"DG", locations:"O,H"});
+paths.OM.push({end:"GH", locations:"O,H"});
+paths.OM.push({end:"HJ", locations:"O,H"});
+paths.OM.push({end:"JK", locations:"O,H,J"});
+paths.OM.push({end:"HZ", locations:"O"});
+paths.OM.push({end:"ZO", locations:"O"});
+paths.OM.push({end:"OM", locations:""});
+paths.OM.push({end:"MN", locations:"M"});
+paths.OM.push({end:"OA", locations:""});
+paths.MN = []; 
+paths.MN.push({end:"AB", locations:"M,A"});
+paths.MN.push({end:"BC", locations:"M,A"});
+paths.MN.push({end:"CD", locations:"M,A"});
+paths.MN.push({end:"DG", locations:"M,O,H"});
+paths.MN.push({end:"GH", locations:"M,O,H"});
+paths.MN.push({end:"HJ", locations:"M,O,H"});
+paths.MN.push({end:"JK", locations:"M,O,H,J"});
+paths.MN.push({end:"HZ", locations:"M,O"});
+paths.MN.push({end:"ZO", locations:"M,O"});
+paths.MN.push({end:"OM", locations:"M"});
+paths.MN.push({end:"MN", locations:""});
+paths.MN.push({end:"OA", locations:"M"});
+paths.OA = []; 
+paths.OA.push({end:"AB", locations:"A"});
+paths.OA.push({end:"BC", locations:"A"});
+paths.OA.push({end:"CD", locations:"A"});
+paths.OA.push({end:"DG", locations:"A,D"});
+paths.OA.push({end:"GH", locations:"O,H"});
+paths.OA.push({end:"HJ", locations:"O,H"});
+paths.OA.push({end:"JK", locations:"O,H,J"});
+paths.OA.push({end:"HZ", locations:"O"});
+paths.OA.push({end:"ZO", locations:"O"});
+paths.OA.push({end:"OM", locations:""});
+paths.OA.push({end:"MN", locations:"M"});
+paths.OA.push({end:"OA", locations:""});
+
+paths.BA = paths.AB;
+paths.CB = paths.BC;
+paths.DC = paths.CD;
+paths.GD = paths.DG;
+paths.HG = paths.GH;
+paths.JH = paths.HJ;
+paths.KJ = paths.JK;
+paths.ZH = paths.HZ;
+paths.OZ = paths.ZO;
+paths.MO = paths.OM;
+paths.NM = paths.MN;
+paths.AO = paths.OA;
+
+//]]> 
+
+</script>
+
+</body>
+
+</html>
+
